@@ -1,29 +1,6 @@
-const express = require('express');
-const cors = require('cors');
 const env = require('./config/env');
-const routes = require('./routes');
-const { notFound, errorHandler } = require('./middleware/error');
+const app = require('./app');
 const { ping } = require('./db/pool');
-
-const app = express();
-
-app.use(cors({ origin: [env.clientOrigin, 'http://localhost:5173', 'http://127.0.0.1:5173'] }));
-app.use(express.json({ limit: '100kb' }));
-
-app.use((req, res, next) => {
-  const started = Date.now();
-  res.on('finish', () => {
-    if (req.path.startsWith('/api')) {
-      console.log(`${req.method} ${req.originalUrl} -> ${res.statusCode} (${Date.now() - started}ms)`);
-    }
-  });
-  next();
-});
-
-app.use('/api', routes);
-
-app.use(notFound);
-app.use(errorHandler);
 
 async function start() {
   try {
