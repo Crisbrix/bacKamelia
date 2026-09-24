@@ -1,11 +1,12 @@
-const { getPool } = require('./pool');
+const { ensurePool } = require('./pool');
 
 /**
  * Capa de acceso a datos (gestor de conexion TiDB/MySQL).
  * Todas las consultas de los modelos pasan por aqui.
  */
 async function query(sql, params = []) {
-  const [rows] = await getPool().query(sql, params);
+  const connection = await ensurePool();
+  const [rows] = await connection.query(sql, params);
   return rows;
 }
 
@@ -15,12 +16,14 @@ async function one(sql, params = []) {
 }
 
 async function run(sql, params = []) {
-  const [result] = await getPool().execute(sql, params);
+  const connection = await ensurePool();
+  const [result] = await connection.execute(sql, params);
   return result;
 }
 
 async function transaction(callback) {
-  const conn = await getPool().getConnection();
+  const connection = await ensurePool();
+  const conn = await connection.getConnection();
   try {
     await conn.beginTransaction();
     const result = await callback({

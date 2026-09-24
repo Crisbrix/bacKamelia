@@ -4,6 +4,8 @@ const mysql = require('mysql2/promise');
 const env = require('../config/env');
 
 let pool = null;
+let poolReady = false;
+let poolInit = null;
 
 function readCaFile() {
   if (!env.db.caFile) return undefined;
@@ -58,27 +60,51 @@ function isCertificateError(error) {
 }
 
 /**
- * Comprueba la conexion. Si TiDB rechaza el certificado porque no se
- * configuro CA propia, reintenta una vez sin validar la cadena (avisando).
+ * Inicializa el pool con una prueba de conexion. En Vercel (serverless) no
+ * se ejecuta src/server.js, asi que este es el unico punto donde puede
+ * aplicarse el reintento si TiDB rechaza el certificado.
+ */
+async function ensurePool() {
+  if (poolReady) return pool;
+  if (!poolInit) {
+    poolInit = (async () => {
+      await getPool().query('SELECT 1 AS ok');
+      poolReady = true;
+    })()
+      .catch((error) => {
+        const canRetry =
+          env.db.ssl && env.db.sslRejectUnauthorized && !env.db.caFile && isCertificateError(error);
+
+        if (!canRetry) throw error;
+
+        console.warn('[DB] Certificado no validado con la CA del sistema.');
+        console.warn('[DB] Reintento sin rejectUnauthorized (configura DB_CA_FILE para production).');
+        return closePool()
+          .catch(() => {})
+          .then(() => {
+            pool = createPool(false);
+            return getPool().query('SELECT 1 AS ok');
+          })
+          .then(() => {
+            poolReady = true;
+          });
+      })
+      .finally(() => {
+        poolInit = null;
+      });
+  }
+
+  await poolInit;
+  return pool;
+}
+
+/**
+ * Comprueba la conexion (usado por el servidor local y por las migraciones).
  */
 async function ping() {
-  try {
-    const [rows] = await getPool().query('SELECT 1 AS ok');
-    return rows[0].ok === 1;
-  } catch (error) {
-    const canRetry =
-      env.db.ssl && env.db.sslRejectUnauthorized && !env.db.caFile && isCertificateError(error);
-
-    if (!canRetry) throw error;
-
-    console.warn('[DB] Certificado no validado con la CA del sistema.');
-    console.warn('[DB] Reintento sin rejectUnauthorized (configura DB_CA_FILE para production).');
-    await closePool().catch(() => {});
-    pool = createPool(false);
-
-    const [rows] = await getPool().query('SELECT 1 AS ok');
-    return rows[0].ok === 1;
-  }
+  await ensurePool();
+  const [rows] = await pool.query('SELECT 1 AS ok');
+  return rows[0].ok === 1;
 }
 
 async function closePool() {
@@ -86,6 +112,7 @@ async function closePool() {
     await pool.end();
     pool = null;
   }
+  poolReady = false;
 }
 
-module.exports = { getPool, ping, closePool };
+module.exports = { getPool, ensurePool, ping, closePool };
