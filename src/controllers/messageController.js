@@ -30,6 +30,7 @@ function validateMessage(body) {
   const honoree_name = clean(body.honoree_name);
   const message_text = clean(body.message_text);
   const song_request_url = clean(body.song_request_url);
+  const table_number = clean(body.table_number);
 
   if (client_name.length < 2) return { error: 'Escribe tu nombre (minimo 2 caracteres)' };
   if (client_name.length > 120) return { error: 'Tu nombre es demasiado largo' };
@@ -37,6 +38,8 @@ function validateMessage(body) {
   if (honoree_name.length > 120) return { error: 'El nombre del homenajeado es demasiado largo' };
   if (message_text.length < 5) return { error: 'El saludo debe tener al menos 5 caracteres' };
   if (message_text.length > MAX_TEXT) return { error: `El saludo no puede superar ${MAX_TEXT} caracteres` };
+  if (table_number.length < 1) return { error: 'Escribe el numero de mesa' };
+  if (table_number.length > 20) return { error: 'El numero de mesa no puede superar 20 caracteres' };
 
   const song = validateSongUrl(song_request_url);
   if (song && song.error) return { error: song.error };
@@ -47,6 +50,7 @@ function validateMessage(body) {
       honoree_name,
       message_text,
       song_request_url: song ? song.value : null,
+      table_number,
     },
   };
 }

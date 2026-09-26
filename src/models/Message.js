@@ -7,11 +7,11 @@ const Message = {
   PRIORITIES,
   STATUSES,
 
-  async create({ client_name, honoree_name, message_text, song_request_url = null }) {
+  async create({ client_name, honoree_name, message_text, song_request_url = null, table_number = null }) {
     const result = await query(
-      `INSERT INTO messages (client_name, honoree_name, message_text, song_request_url)
-       VALUES (?, ?, ?, ?)`,
-      [client_name, honoree_name, message_text, song_request_url || null]
+      `INSERT INTO messages (client_name, honoree_name, message_text, song_request_url, table_number)
+       VALUES (?, ?, ?, ?, ?)`,
+      [client_name, honoree_name, message_text, song_request_url || null, table_number || null]
     );
     return this.findById(result.insertId);
   },
@@ -35,9 +35,9 @@ const Message = {
     }
 
     if (search) {
-      where.push('(client_name LIKE ? OR honoree_name LIKE ? OR message_text LIKE ?)');
+      where.push('(client_name LIKE ? OR honoree_name LIKE ? OR message_text LIKE ? OR table_number LIKE ?)');
       const term = `%${search}%`;
-      params.push(term, term, term);
+      params.push(term, term, term, term);
     }
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -63,7 +63,7 @@ const Message = {
 
   async recentPublic(limit = 8) {
     return query(
-      `SELECT id, honoree_name, client_name, message_text, created_at
+      `SELECT id, honoree_name, client_name, message_text, table_number, created_at
        FROM messages
        WHERE status = 'leido'
        ORDER BY created_at DESC

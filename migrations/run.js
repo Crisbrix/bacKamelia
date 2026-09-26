@@ -5,7 +5,7 @@ const fs = require('fs');
 const mysql = require('mysql2/promise');
 const env = require('../src/config/env');
 const { getPool, ping, closePool } = require('../src/db/pool');
-const MIGRATIONS = require('./001_create_tables');
+const MIGRATIONS = [...require('./001_create_tables'), ...require('./002_add_messages_table_number')];
 
 function sslOptions() {
   if (!env.db.ssl) return undefined;
